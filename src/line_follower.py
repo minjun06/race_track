@@ -61,14 +61,14 @@ class Follower:
         print("M00 %d %d" % (M['m00'], self.logcount))
 
         if M['m00'] > 0:
-            cx = int(M['m10']/M['m00'])
+            cx = int(M['m10']/M['m00']) - 300
             cy = int(M['m01']/M['m00'])
             cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
 
             # add a turn if the centroid is not in the center
             err = cx - w/2
             self.twist.linear.x = 2
-            self.twist.angular.z = -float(err) / 1000
+            self.twist.angular.z = -float(err) / 500
             self.cmd_vel_pub.publish(self.twist)
         cv2.imshow("image", image)
         cv2.waitKey(3)
