@@ -65,9 +65,7 @@ class Follower:
             cy = int(M['m01']/M['m00'])
             cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
 
-            # Move at 0.2 M/sec
             # add a turn if the centroid is not in the center
-            # Hope for the best. Lots of failure modes.
             err = cx - w/2
             self.twist.linear.x = 2
             self.twist.angular.z = -float(err) / 1000
