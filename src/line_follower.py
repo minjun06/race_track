@@ -52,8 +52,8 @@ class Follower:
         search_bot = h - 400
         mask[0:search_top, 0:w] = 0
         mask[search_bot:h, 0:w] = 0
-        
-        cv2.imshow("band", mask)
+        resized_mask = cv2.resize(mask, (480,270))
+        cv2.imshow("band", resized_mask)
         print "pixel value: " + str(hsv[7*h/8, w/2])
     # Compute the "centroid" and display a red circle to denote it
         M = cv2.moments(mask)
@@ -70,7 +70,8 @@ class Follower:
             self.twist.linear.x = 2
             self.twist.angular.z = -float(err) / 500
             self.cmd_vel_pub.publish(self.twist)
-        cv2.imshow("image", image)
+        resized = cv2.resize(image, (480,270))
+        cv2.imshow("image", resized)
         cv2.waitKey(3)
 
 rospy.init_node('follower')
