@@ -14,7 +14,6 @@ class Follower:
         self.twist = Twist()
         self.state = "PATROLLING"
         self.logcount = 0
-        self.lostcount = 0
         self.head_range = 3.5
         # turning time for obstacle avoidance
         self.turning_time = None
@@ -25,52 +24,32 @@ class Follower:
         self.waiting_start_time = None
 
     def image_callback(self, msg):
-
         # get image from camera
         image = self.bridge.imgmsg_to_cv2(msg)
 
-        # filter out everything that's not yellow
+        # filter out everything that's not gray
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        '''
-        lower_red1 = numpy.array([ 110, 0, 100])
-        upper_red1 = numpy.array([ 255, 255, 255])
-        lower_red2 = numpy.array([ 0, 0, 100])
-        upper_red2 = numpy.array([ 50, 255, 255])
-        '''
         lower_gray = numpy.array([ 5, 5, 50])
         upper_gray = numpy.array([ 40, 40, 80])
-        #red_mask1 = cv2.inRange(hsv,  lower_red1, upper_red1)
-        #red_mask2 = cv2.inRange(hsv,  lower_red2, upper_red2)
-        #mask = cv2.bitwise_or(red_mask1, red_mask2)
-
         mask = cv2.inRange(hsv,  lower_gray, upper_gray)
         masked = cv2.bitwise_and(image, image, mask=mask)
-
-        #masked = cv2.bitwise_and(image, image, mask=mask)
-
-        # clear all but a 20 pixel band near the top of the image
         
+        # image ROI (Region of Interest)
         h, w, d = image.shape
-        '''
-        search_top = 1 * h /2 + 30
-        search_bot = search_top + 100
-        search_left = 5 * w / 8
-        mask[0:search_top, 0:w] = 0
-        mask[search_bot:h, 0:w] = 0
-        mask[search_top:search_bot, search_left:w] = 0
-        '''
         search_top = h / 2
         search_bot = search_top + 200
         mask[0:search_top, 0:w] = 0
         mask[search_bot:h, 0:w] = 0
         resized_mask = cv2.resize(mask, (480,270))
         cv2.imshow("band", resized_mask)
-        print ("pixel value: " + str(hsv[7*h/8, w/2]))
+        
         # Compute the "centroid" and display a red circle to denote it
         M = cv2.moments(mask)
         self.logcount += 1
-        print("M00 %d %d" % (M['m00'], self.logcount))
+
+        # if we are following the line
         if self.state != "OBSTACLE_DETECTED" and self.state != "WAITING":
+            # if there is road to follow
             if M['m00'] > 0:
                 self.state = "FOLLOWING_LINE"
                 cx = int(M['m10']/M['m00']) - 50
@@ -84,7 +63,7 @@ class Follower:
                 self.cmd_vel_pub.publish(self.twist)
             else: #patrolling
                 self.patrol()
-        print("state: ", self.state)
+        print "state: " + self.state
         resized = cv2.resize(image, (480,270))
         cv2.imshow("image", resized)
         cv2.waitKey(3)
@@ -96,14 +75,13 @@ class Follower:
         self.twist.angular.z = 0
         self.cmd_vel_pub.publish(self.twist)
 
+    # This method reads scan data to identify obstacles
     def scan_callback(self, msg):
         ranges = self.filter(msg)
         # head area for the robot
         head = numpy.concatenate((numpy.array(ranges[350:360]), numpy.array(ranges[0:10])))
-        print(head)
         # min_value for the range to filter the noise
         self.head_range = numpy.amin(head)
-        print("head_range: ",self.head_range)
         if self.turning_time == None:#not in turning state
             if self.head_range < 3:
                 # wait for the obstacle to move away when following
@@ -133,7 +111,7 @@ class Follower:
             self.state = "OBSTACLE_DETECTED"
     
 
-    # This method start the turning process when the robot is aiming to skip the obstacle
+    # This method start the turning process when the robot is aiming to avoid the obstacle
     def start_turn(self, ranges, head_range):
         self.state = "OBSTACLE_DETECTED"
         self.turning_start_time = rospy.Time.now()
@@ -146,7 +124,7 @@ class Follower:
             # turn right
             self.turn_anti_clockwise = -1
             time_duration = float(right_angle)/(180/4)
-        else:
+        else: # turn left
             self.turn_anti_clockwise = 1
             time_duration = float(left_angle)/(180/4)
         self.turning_time = rospy.Duration(secs=time_duration)
@@ -165,7 +143,7 @@ class Follower:
                     return head_range + i
         return 0
 
-     # This method periodically send turning message to robot when turning time is not zero
+    # This method periodically send turning message to robot when turning time is not zero
     def turn(self):
         if rospy.Time.now() - self.turning_start_time < self.turning_time:
             self.twist.angular.z = self.turn_anti_clockwise * pi/4
