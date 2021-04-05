@@ -15,12 +15,12 @@ class Follower:
         self.state = "PATROLLING"
         self.logcount = 0
         self.lostcount = 0
-        self.head_range = 2
+        self.head_range = 3.5
         # turning time for obstacle avoidance
         self.turning_time = None
         self.turning_start_time = None
         # waiting time for potential moving obstacle
-        # wait for 5 sec if the obstacle moves away keep following, otherwise we escape the obstacle by turning 90 degree to its position
+        # wait for 0 sec if the obstacle moves away keep following, otherwise we escape the obstacle by turning 90 degree to its position
         self.waiting_time = rospy.Duration(secs=0)
         self.waiting_start_time = None
 
@@ -60,7 +60,7 @@ class Follower:
         mask[search_top:search_bot, search_left:w] = 0
         '''
         search_top = h / 2
-        search_bot = search_top + 400
+        search_bot = search_top + 200
         mask[0:search_top, 0:w] = 0
         mask[search_bot:h, 0:w] = 0
         resized_mask = cv2.resize(mask, (480,270))
@@ -73,14 +73,14 @@ class Follower:
         if self.state != "OBSTACLE_DETECTED" and self.state != "WAITING":
             if M['m00'] > 0:
                 self.state = "FOLLOWING_LINE"
-                cx = int(M['m10']/M['m00']) - 100
+                cx = int(M['m10']/M['m00']) - 50
                 cy = int(M['m01']/M['m00'])
                 cv2.circle(image, (cx, cy), 20, (0,0,255), -1)
 
                 # add a turn if the centroid is not in the center
                 err = cx - w/2
-                self.twist.linear.x = 1
-                self.twist.angular.z = -float(err) / 500
+                self.twist.linear.x = 1.5
+                self.twist.angular.z = -float(err) / 375
                 self.cmd_vel_pub.publish(self.twist)
             else: #patrolling
                 self.patrol()
@@ -95,17 +95,12 @@ class Follower:
         self.twist.linear.x = 1
         self.twist.angular.z = 0
         self.cmd_vel_pub.publish(self.twist)
-    
-    def slown_down(self):
-        self.state = "PATROLLING"
-        self.twist.linear.x = 1
-        self.twist.angular.z = 0
-        self.cmd_vel_pub.publish(self.twist)
 
     def scan_callback(self, msg):
-        ranges = numpy.array(self.filter(msg))
+        ranges = self.filter(msg)
         # head area for the robot
-        head = ranges[324:360] + ranges[0:36] 
+        head = numpy.concatenate((numpy.array(ranges[350:360]), numpy.array(ranges[0:10])))
+        print(head)
         # min_value for the range to filter the noise
         self.head_range = numpy.amin(head)
         print("head_range: ",self.head_range)
@@ -115,8 +110,7 @@ class Follower:
                 if (self.state == "FOLLOWING_LINE" and self.waiting_start_time == None) or self.waiting_start_time != None:
                     self.wait()
                 else:
-                    # actual angle = index(head) - offset
-                    self.start_turn(ranges, numpy.argmin(head) - 36)
+                    self.start_turn(ranges, 10)
             elif self.state != "FOLLOWING_LINE":
                 if self.state == "WAITING":# obstacle move away
                     self.waiting_start_time = None
@@ -140,30 +134,49 @@ class Follower:
     
 
     # This method start the turning process when the robot is aiming to skip the obstacle
-    def start_turn(self, ranges, min_angle):
+    def start_turn(self, ranges, head_range):
         self.state = "OBSTACLE_DETECTED"
         self.turning_start_time = rospy.Time.now()
         # turning orientation
+        # maybe we can turing while keep detecting
         time_duration = 0
-        if ranges[(min_angle - 90 + 360)%360] > ranges[min_angle + 90]:
+        right_angle = self.get_angle(True, ranges, head_range)
+        left_angle = self.get_angle(False, ranges, head_range)
+        if left_angle > right_angle:
+            # turn right
             self.turn_anti_clockwise = -1
-            time_duration = float(15 - min_angle)/(180/10)
+            time_duration = float(right_angle)/(180/4)
         else:
             self.turn_anti_clockwise = 1
-            time_duration = float(min_angle + 15)/(180/10)
+            time_duration = float(left_angle)/(180/4)
         self.turning_time = rospy.Duration(secs=time_duration)
     
+    # this method check the outmost boundary of the obstacle
+    def get_angle(self, right, ranges, head_range):
+        if right:
+            #find the space in the right region
+            for i in range(90):
+                if ranges[359 - i] == 3.5:
+                    return head_range + i
+        else:
+            #find the space in the left region
+            for i in range(90):
+                if ranges[i] == 3.5:
+                    return head_range + i
+        return 0
+
      # This method periodically send turning message to robot when turning time is not zero
     def turn(self):
         if rospy.Time.now() - self.turning_start_time < self.turning_time:
             self.twist.angular.z = self.turn_anti_clockwise * pi/4
-            self.twist.linear.x = 0.5
+            self.twist.linear.x = 1
             self.cmd_vel_pub.publish(self.twist)
         else:
             self.turning_time = None
             self.patrol()
 
     # This method filters the noice in the range data
+    # max = 3.5
     def filter(self, msg):
         ranges = list(msg.ranges)
         for i in range(len(msg.ranges)):
