@@ -82,7 +82,6 @@ class Follower:
         head = numpy.concatenate((numpy.array(ranges[350:360]), numpy.array(ranges[0:10])))
         # min_value for the range to filter the noise
         self.head_range = numpy.amin(head)
-        print(self.head_range)
         if self.turning_time == None:#not in turning state
             if self.head_range < 3:
                 # wait for the obstacle to move away when following
