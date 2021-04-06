@@ -1,1 +1,0 @@
-  <node pkg="race_track" type="line_follower.py" name="line_follower" output="screen"/>

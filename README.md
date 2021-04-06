@@ -15,11 +15,15 @@ git clone https://github.com/aws-robotics/aws-robomaker-racetrack-world.git
 
 
 
-## Launch
+## Launch Instructions
 
 `roslaunch race_track racetrack.launch `
 
+## Launch Instructions for OpenCV based obstacle avoidance
 
+1) Comment out 'line_follower.py ' in the 'racetrack.launch' file
+2) Decomment in 'obstacle_avoid.py ' in the 'racetrack.launch' file
+3) `roslaunch race_track racetrack.launch `
 
 ## Obstacle Avoidance Challenge Based on Scan Data
 
@@ -76,6 +80,30 @@ For the curve part of the track, obstacle avoidance still need further optimizat
 
 -----
 
+## Obstacle Avoidance Challenge Based on OpenCV
+
+by **Nathan Cai**
+
+**Code Base**: https://github.com/minjun06/race_track/tree/main
+
+**Demo Video Link**:  https://youtu.be/h8tUwh413II
+
+### Related State
+
+`FOLLOWING_LINE`: robot racing at 1 meters per second
+
+`PATROLLING` : robot races in a straight line without sensors
+
+### Turning strategy
+
+The obstacle avoidance strategy is based on the OpenCV data.
+
+Due to the thigh color band that we set on the OpenCV data, we are able to only detect the color of the road,
+assuming that obsatacles do not have the same or extremely similar colors to the road, the OpenCV software will
+see this as an empty space in the detected mass of the road. This would always result in a narrower area for the
+centroid and thus turn the robot accordingly.
+
+-----
 
 
 
