@@ -82,6 +82,7 @@ class Follower:
         head = numpy.concatenate((numpy.array(ranges[350:360]), numpy.array(ranges[0:10])))
         # min_value for the range to filter the noise
         self.head_range = numpy.amin(head)
+        print(self.head_range)
         if self.turning_time == None:#not in turning state
             if self.head_range < 3:
                 # wait for the obstacle to move away when following
@@ -122,9 +123,11 @@ class Follower:
         left_angle = self.get_angle(False, ranges, head_range)
         if left_angle > right_angle:
             # turn right
+            print("turning right")
             self.turn_anti_clockwise = -1
             time_duration = float(right_angle)/(180/4)
         else: # turn left
+            print("turning left")
             self.turn_anti_clockwise = 1
             time_duration = float(left_angle)/(180/4)
         self.turning_time = rospy.Duration(secs=time_duration)
@@ -134,20 +137,21 @@ class Follower:
         if right:
             #find the space in the right region
             for i in range(90):
-                if ranges[359 - i] == 3.5:
-                    return head_range + i
+                if ranges[359 - i] >= 3.5:
+                    # ten more angle is added for safety
+                    return head_range + i + 20
         else:
             #find the space in the left region
             for i in range(90):
-                if ranges[i] == 3.5:
-                    return head_range + i
+                if ranges[i] >= 3.5:
+                    return head_range + i + 20
         return 0
 
     # This method periodically send turning message to robot when turning time is not zero
     def turn(self):
         if rospy.Time.now() - self.turning_start_time < self.turning_time:
             self.twist.angular.z = self.turn_anti_clockwise * pi/4
-            self.twist.linear.x = 1
+            self.twist.linear.x = 0.5
             self.cmd_vel_pub.publish(self.twist)
         else:
             self.turning_time = None
