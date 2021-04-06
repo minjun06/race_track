@@ -59,7 +59,8 @@ We just find a cheaper orientation to turn:
 
 ### Experiments on Different Obstacle Patterns
 
-These three kinds of obstacles can be avoided. Please refer to the demo video.
+These three kinds of obstacles on the straight track can be avoided. Please refer to the demo video.
+For the curve part of the track, obstacle avoidance still need further optimization.
 
 - simple one at left side: turn right
 
